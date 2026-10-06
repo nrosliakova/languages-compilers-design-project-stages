@@ -1,0 +1,2 @@
+minint 🔒 x{1}
+bye x;

@@ -1,0 +1,4 @@
+minint 🔒 x{2};
+bigint 🔒 y{3000000000};
+bigint 🔒 z{x + y * 2};
+bye z;

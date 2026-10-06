@@ -1,0 +1,10 @@
+vibe 🔒 flag{yea};
+chat !flag
+👇
+ bye 1;
+👆
+nah
+👇
+ bye 2;
+👆
+bye 0;

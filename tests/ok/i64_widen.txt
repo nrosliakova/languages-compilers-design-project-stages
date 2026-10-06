@@ -1,0 +1,3 @@
+minint 🔒 x{15};
+bigint 🔒 y{x};
+bye y;

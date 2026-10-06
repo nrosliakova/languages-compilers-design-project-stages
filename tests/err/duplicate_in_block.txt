@@ -1,0 +1,6 @@
+chat yea
+👇
+ minint 🔒 a{1};
+ minint 🔒 a{2};
+👆
+bye 0;

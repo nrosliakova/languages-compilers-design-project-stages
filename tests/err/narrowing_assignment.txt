@@ -1,0 +1,4 @@
+bigint 🔒 x{3000000000};
+minint 🔓 y{1};
+y = x;
+bye y;

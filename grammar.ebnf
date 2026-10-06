@@ -1,0 +1,39 @@
+program ::= { statement } exit_stmt
+
+statement ::= declaration ";" | assignment ";" | if_stmt
+
+declaration ::= type mutability ident "{" expression "}"
+type ::= "minint" | "bigint" | "vibe"
+mutability ::= "🔓" | "🔒"
+
+assignment ::= ident "=" expression
+exit_stmt ::= "bye" factor ";"
+
+if_stmt ::= "chat" expression block [ "nah" block ]
+block ::= "👇" ( statement { statement } [ exit_stmt ] | exit_stmt ) "👆"
+
+expression ::= arithmetic [ ( "==" | "!=" ) arithmetic ]
+arithmetic ::= term { ( "+" | "-" ) term }
+term ::= factor { "*" factor }
+factor ::= number | "yea" | "cap" | ident | "!" factor
+
+ident ::= letter { letter | digit }
+number ::= digit { digit }
+letter ::= "A" … "Z" | "a" … "z" | "_"
+digit ::= "0" … "9"
+
+# The … notation means an inclusive character range.
+# Reserved words cannot be identifiers:
+# minint, bigint, vibe, chat, nah, bye, yea, cap.
+# Unlocked padlock marks mutable; locked padlock marks immutable.
+# Every declaration requires exactly one mutability marker.
+# Spaces, tabs, carriage returns and newlines are ignored between tokens.
+# A number immediately followed by a letter or underscore is a lexical error.
+# Declarations, assignments and bye statements require a semicolon.
+# chat/nah blocks do not require a semicolon after the closing marker.
+# Blocks must contain at least one statement or a bye statement.
+# No statement may follow bye within the same block or program.
+# Every program ends with a top-level bye statement.
+# Initializer braces are distinct from the emoji block delimiters.
+# Parentheses and unary minus are not supported.
+# Source text uses UTF-8; emoji tokens are matched as byte sequences.

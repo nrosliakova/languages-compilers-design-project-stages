@@ -1,0 +1,6 @@
+minint 🔒 n{1};
+chat n
+👇
+ bye 1;
+👆
+bye 0;

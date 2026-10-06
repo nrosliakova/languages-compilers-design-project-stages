@@ -1,0 +1,4 @@
+minint 🔒 x{10};
+bigint 🔒 y{10};
+vibe 🔒 same{x == y};
+bye same;

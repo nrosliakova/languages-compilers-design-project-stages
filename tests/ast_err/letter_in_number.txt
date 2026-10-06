@@ -1,0 +1,2 @@
+minint 🔒 x{12a};
+bye x;

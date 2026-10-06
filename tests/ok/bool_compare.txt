@@ -1,0 +1,4 @@
+vibe 🔒 a{yea};
+vibe 🔒 b{cap};
+vibe 🔒 different{a != b};
+bye different;

@@ -1,0 +1,6 @@
+minint 🔓 x{10};
+chat cap
+👇
+ x = 99;
+👆
+bye x;
