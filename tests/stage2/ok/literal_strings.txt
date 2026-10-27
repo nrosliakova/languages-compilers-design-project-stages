@@ -1,0 +1,1 @@
+say("hello"); say("100% ready"); say("\n"); say("Привіт"); say(yea); say(cap); bye 0;

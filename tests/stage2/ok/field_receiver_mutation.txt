@@ -1,0 +1,1 @@
+struct Box 👇 minint 🔓 x; fn inc() -> minint 👇 x = x + 1; bye x; 👆 👆 struct Outer 👇 Box 🔓 inner; fn call() -> minint 👇 bye inner.inc(); 👆 👆 Outer 🔓 o{{2}}; o.call(); bye o.inner.x;

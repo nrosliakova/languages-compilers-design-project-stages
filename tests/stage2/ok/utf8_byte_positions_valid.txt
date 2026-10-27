@@ -1,0 +1,1 @@
+minint 🔓 say{1}; say = say + 2; say(say); bye say;

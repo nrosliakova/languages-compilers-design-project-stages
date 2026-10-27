@@ -1,0 +1,11 @@
+Program
+  Fn ping -> i32
+    Block
+      Print
+        String 'ping'
+      Exit
+        Const 0
+  CallStmt
+    Call ping
+  Exit
+    Const 0

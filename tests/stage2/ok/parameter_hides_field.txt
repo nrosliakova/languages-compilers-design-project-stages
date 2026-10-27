@@ -1,0 +1,1 @@
+struct Box 👇 minint 🔒 x; fn get(minint x) -> minint 👇 bye x; 👆 👆 Box 🔒 b{9}; bye b.get(4);

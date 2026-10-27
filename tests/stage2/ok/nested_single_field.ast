@@ -1,0 +1,14 @@
+Program
+  Struct Inner
+    Field x i32 mut
+  Struct Outer
+    Field value Inner mut
+  Decl o Outer mut
+    InitList
+      Const 7
+  Assign o
+    Const 9
+  Print
+    Var o
+  Exit
+    FieldAccess o.value.x

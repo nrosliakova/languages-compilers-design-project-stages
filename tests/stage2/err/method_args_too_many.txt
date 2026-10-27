@@ -1,0 +1,1 @@
+struct Box 👇 minint 🔒 x; fn f() -> minint 👇 bye x; 👆 👆 Box 🔒 b{1}; bye b.f(1);

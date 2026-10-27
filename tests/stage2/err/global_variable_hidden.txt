@@ -1,0 +1,1 @@
+fn f() -> minint 👇 bye global; 👆 minint 🔒 global{1}; bye f();

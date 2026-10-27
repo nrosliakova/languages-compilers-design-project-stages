@@ -1,12 +1,24 @@
-program ::= { statement } exit_stmt
+# Stage 2 grammar — implemented working copy.
+# Existing Stage 1 spellings, precedence, semicolons and whitespace are preserved.
 
-statement ::= declaration ";" | assignment ";" | if_stmt
+program ::= { struct_decl } { function_decl } { statement } exit_stmt
 
-declaration ::= type mutability ident "{" expression "}"
-type ::= "minint" | "bigint" | "vibe"
+struct_decl ::= "struct" ident "👇" field_decl { field_decl } { function_decl } "👆"
+field_decl ::= type mutability ident ";"
+function_decl ::= "fn" ident "(" [ parameters ] ")" "->" type function_body
+parameters ::= parameter { "," parameter }
+parameter ::= type ident
+function_body ::= "👇" { statement } exit_stmt "👆"
+
+type ::= "minint" | "bigint" | "vibe" | ident
 mutability ::= "🔓" | "🔒"
 
-assignment ::= ident "=" expression
+statement ::= declaration ";" | assignment ";" | call_stmt ";" | say_stmt ";" | if_stmt
+declaration ::= type mutability ident "{" init_value { "," init_value } "}"
+init_value ::= expression | "{" init_value { "," init_value } "}"
+assignment ::= field_path "=" expression
+call_stmt ::= postfix
+say_stmt ::= "say" "(" ( string_literal | expression ) ")"
 exit_stmt ::= "bye" factor ";"
 
 if_stmt ::= "chat" expression block [ "nah" block ]
@@ -15,25 +27,49 @@ block ::= "👇" ( statement { statement } [ exit_stmt ] | exit_stmt ) "👆"
 expression ::= arithmetic [ ( "==" | "!=" ) arithmetic ]
 arithmetic ::= term { ( "+" | "-" ) term }
 term ::= factor { "*" factor }
-factor ::= number | "yea" | "cap" | ident | "!" factor
+factor ::= number | "yea" | "cap" | "!" factor | postfix
+postfix ::= ident [ arguments ] { "." ident [ arguments ] }
+field_path ::= ident { "." ident }
+arguments ::= "(" [ expression { "," expression } ] ")"
 
 ident ::= letter { letter | digit }
 number ::= digit { digit }
 letter ::= "A" … "Z" | "a" … "z" | "_"
 digit ::= "0" … "9"
+string_literal ::= '"' { string_character } '"'
+string_character ::= ? any valid UTF-8 character except double quote, CR or LF ?
 
 # The … notation means an inclusive character range.
-# Reserved words cannot be identifiers:
-# minint, bigint, vibe, chat, nah, bye, yea, cap.
-# Unlocked padlock marks mutable; locked padlock marks immutable.
-# Every declaration requires exactly one mutability marker.
-# Spaces, tabs, carriage returns and newlines are ignored between tokens.
+# Stage 1 reserved words: minint, bigint, vibe, chat, nah, bye, yea, cap.
+# Contextual keywords: fn, struct, listen, say; not globally reserved identifiers.
+# Recognize them in their new syntactic roles; preserve old variable uses.
+# For example, minint 🔒 say{5}; bye say; remains valid.
+# say(value); is output and listen() is input; bare names can refer to variables.
+# Strings have no escapes: backslashes are literal; quotes and line breaks are forbidden inside.
+# Spaces, tabs, carriage returns and newlines separate tokens, not statements.
+# Statements shown with ";" require it. Structures, functions and chat do not.
+# Emoji block markers need not occupy separate lines. No variation selectors.
+# Declarations and fields require exactly one explicit mutability marker.
+# Parameters are immutable and do not take a marker.
+# Blocks cannot be empty. No statement follows bye in its containing block.
+# Function bodies end with a direct bye; every program ends with a top-level bye.
+# In a function, bye returns silently; top-level bye preserves Stage 1 output.
+# Structures appear first, then global functions, then executable statements.
+# Structure fields precede methods. Duplicate field/method names are invalid.
+# Referenced field types must already be declared. Recursive value types are invalid.
+# Calls may use nested expression arguments and may be standalone statements.
+# listen arity is checked semantically: exactly zero arguments.
+# Chains may continue after function/member calls returning structures.
+# A call_stmt must end in arguments (a call), not in a bare field/name; enforce during parsing.
+# listen is a contextual identifier recognized as the zero-argument input built-in.
+# A returned object is a temporary copy; member calls on it affect only that copy.
+# Assignment targets are field_path only: calls anywhere in an assignment target are rejected.
+# A structure initializer supplies exactly one value per declared field, in order.
+# Primitive initializers still supply exactly one expression (semantic check).
+# String literals occur only as say's direct argument. say takes exactly one value.
+# Existing source syntax still has no comments, grouping parentheses or unary minus.
 # A number immediately followed by a letter or underscore is a lexical error.
-# Declarations, assignments and bye statements require a semicolon.
-# chat/nah blocks do not require a semicolon after the closing marker.
-# Blocks must contain at least one statement or a bye statement.
-# No statement may follow bye within the same block or program.
-# Every program ends with a top-level bye statement.
-# Initializer braces are distinct from the emoji block delimiters.
-# Parentheses and unary minus are not supported.
-# Source text uses UTF-8; emoji tokens are matched as byte sequences.
+# Source is UTF-8. Diagnostic columns count bytes, not displayed characters.
+
+# Global function declarations cannot redefine the listen/say built-ins.
+# i32/i64/bool are internal types, not source aliases or structure type names.

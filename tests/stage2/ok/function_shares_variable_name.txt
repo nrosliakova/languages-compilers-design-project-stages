@@ -1,0 +1,1 @@
+fn same() -> minint 👇 bye 7; 👆 minint 🔒 same{2}; say(same); bye same();

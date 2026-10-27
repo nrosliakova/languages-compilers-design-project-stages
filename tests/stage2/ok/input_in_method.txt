@@ -1,0 +1,1 @@
+struct Box 👇 minint 🔓 x; fn readValue() -> minint 👇 x = listen(); bye x; 👆 👆 Box 🔓 b{0}; b.readValue(); say(b); bye b.x;

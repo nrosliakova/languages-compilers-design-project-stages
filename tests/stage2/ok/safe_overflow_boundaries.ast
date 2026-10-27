@@ -1,0 +1,15 @@
+Program
+  Decl x i32 const
+    BinOp +
+      Const 2147483647
+      Const 0
+  Decl y i32 const
+    Call listen
+  Decl z i32 const
+    BinOp *
+      Var y
+      Const 1
+  Print
+    Var x
+  Exit
+    Var z

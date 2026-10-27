@@ -1,0 +1,1 @@
+struct Box 👇 minint 🔒 x; 👆 Box 🔓 b{1}; b.x = 3; bye 0;

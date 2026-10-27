@@ -1,0 +1,1 @@
+fn ping() -> minint 👇 say("ping"); bye 0; 👆 ping(); bye 0;

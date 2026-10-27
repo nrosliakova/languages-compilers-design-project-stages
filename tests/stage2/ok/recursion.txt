@@ -1,0 +1,1 @@
+fn count(minint n) -> minint 👇 chat n == 0 👇 bye 0; 👆 minint 🔒 r{count(n - 1) + 1}; bye r; 👆 bye count(5);

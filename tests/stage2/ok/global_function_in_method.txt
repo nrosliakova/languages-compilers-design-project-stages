@@ -1,0 +1,2 @@
+struct Box 👇 minint 🔒 x; fn get() -> minint 👇 bye identity(x); 👆 👆 fn identity(minint x) -> minint 👇 bye x; 👆
+Box 🔒 b{4}; bye b.get();

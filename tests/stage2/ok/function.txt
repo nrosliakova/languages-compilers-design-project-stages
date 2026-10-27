@@ -1,0 +1,2 @@
+fn identity(minint x) -> minint 👇 bye x; 👆
+bye identity(7);

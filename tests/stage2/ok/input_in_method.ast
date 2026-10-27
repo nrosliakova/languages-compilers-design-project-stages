@@ -1,0 +1,18 @@
+Program
+  Struct Box
+    Field x i32 mut
+    MemberFn readValue -> i32
+      Block
+        Assign x
+          Call listen
+        Exit
+          Var x
+  Decl b Box mut
+    Const 0
+  CallStmt
+    MemberCall readValue
+      Var b
+  Print
+    Var b
+  Exit
+    FieldAccess b.x

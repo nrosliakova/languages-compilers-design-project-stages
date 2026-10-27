@@ -1,0 +1,17 @@
+Program
+  Decl fn i32 mut
+    Const 1
+  Decl struct i32 const
+    Const 2
+  Decl listen i32 const
+    Const 3
+  Decl say i32 const
+    Const 4
+  Assign fn
+    BinOp +
+      Var fn
+      Var struct
+  Print
+    Var say
+  Exit
+    Var listen

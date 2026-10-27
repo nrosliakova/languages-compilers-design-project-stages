@@ -1,0 +1,15 @@
+Program
+  Print
+    String 'hello'
+  Print
+    String '100% ready'
+  Print
+    String '\\n'
+  Print
+    String 'Привіт'
+  Print
+    Bool true
+  Print
+    Bool false
+  Exit
+    Const 0
