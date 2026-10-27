@@ -1,0 +1,11 @@
+Program
+  Fn same -> i32
+    Block
+      Exit
+        Const 7
+  Decl same i32 const
+    Const 2
+  Print
+    Var same
+  Exit
+    Call same

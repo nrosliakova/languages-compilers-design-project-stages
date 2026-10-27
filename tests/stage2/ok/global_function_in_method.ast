@@ -1,0 +1,18 @@
+Program
+  Struct Box
+    Field x i32 const
+    MemberFn get -> i32
+      Block
+        Exit
+          Call identity
+            Var x
+  Fn identity -> i32
+    Param x i32
+    Block
+      Exit
+        Var x
+  Decl b Box const
+    Const 4
+  Exit
+    MemberCall get
+      Var b

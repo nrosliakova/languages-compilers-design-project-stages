@@ -1,0 +1,11 @@
+Program
+  Fn f -> i32
+    Param x i32
+    Block
+      Decl x i32 const
+        Const 6
+      Exit
+        Var x
+  Exit
+    Call f
+      Const 1

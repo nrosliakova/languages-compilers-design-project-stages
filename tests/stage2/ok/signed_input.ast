@@ -1,0 +1,13 @@
+Program
+  Decl a i32 const
+    Call listen
+  Decl b i32 const
+    Call listen
+  Decl result i32 const
+    BinOp +
+      Var a
+      Var b
+  Print
+    Var result
+  Exit
+    Var result

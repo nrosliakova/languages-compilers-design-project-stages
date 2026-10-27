@@ -1,0 +1,19 @@
+Program
+  Fn inc -> i32
+    Param n i32
+    Block
+      Decl copy i32 mut
+        Var n
+      Assign copy
+        BinOp +
+          Var copy
+          Const 1
+      Exit
+        Var copy
+  Decl n i32 const
+    Const 4
+  Print
+    Call inc
+      Var n
+  Exit
+    Var n

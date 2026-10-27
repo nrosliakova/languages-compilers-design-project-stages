@@ -1,0 +1,1 @@
+fn f() -> minint 👇 say(1); 👆 bye 0;

@@ -1,0 +1,26 @@
+Program
+  Struct Box
+    Field x i32 mut
+    MemberFn inc -> i32
+      Block
+        Assign x
+          BinOp +
+            Var x
+            Const 1
+        Exit
+          Var x
+  Struct Outer
+    Field inner Box mut
+    MemberFn call -> i32
+      Block
+        Exit
+          MemberCall inc
+            Var inner
+  Decl o Outer mut
+    InitList
+      Const 2
+  CallStmt
+    MemberCall call
+      Var o
+  Exit
+    FieldAccess o.inner.x

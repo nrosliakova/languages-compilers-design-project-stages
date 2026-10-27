@@ -1,0 +1,1 @@
+struct Box 👇 minint 🔒 x; 👆 Box 🔒 b{1}; bye b.missing();

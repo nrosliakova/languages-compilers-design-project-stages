@@ -1,0 +1,1 @@
+minint 🔒 read{3}; minint 🔒 print{4}; minint 🔒 while{5}; minint 🔒 exit{6}; bye read;

@@ -1,0 +1,1 @@
+fn inc(minint n) -> minint 👇 minint 🔓 copy{n}; copy = copy + 1; bye copy; 👆 minint 🔒 n{4}; say(inc(n)); bye n;

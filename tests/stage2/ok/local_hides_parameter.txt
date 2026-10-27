@@ -1,0 +1,1 @@
+fn f(minint x) -> minint 👇 minint 🔒 x{6}; bye x; 👆 bye f(1);

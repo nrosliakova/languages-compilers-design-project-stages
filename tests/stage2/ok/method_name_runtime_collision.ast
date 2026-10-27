@@ -1,0 +1,12 @@
+Program
+  Struct printf
+    Field x i32 const
+    MemberFn main -> i32
+      Block
+        Exit
+          Var x
+  Decl p printf const
+    Const 9
+  Exit
+    MemberCall main
+      Var p
