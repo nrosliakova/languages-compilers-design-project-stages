@@ -1,0 +1,5 @@
+chat yea
+👇
+ minint 🔒 inner{1};
+👆
+bye inner;

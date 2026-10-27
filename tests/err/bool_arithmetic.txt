@@ -1,0 +1,3 @@
+vibe 🔒 b{yea};
+minint 🔒 x{1 + b};
+bye x;

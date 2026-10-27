@@ -1,0 +1,5 @@
+Program
+  Decl result bool const
+    Bool false
+  Exit
+    Var result

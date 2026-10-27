@@ -1,0 +1,11 @@
+bigint 🔒 a{10};
+vibe 🔒 b{yea};
+vibe 🔒 c{cap};
+vibe 🔒 d{a == 10};
+vibe 🔓 e{a != 10};
+e = b == d;
+minint 🔒 x{15};
+bigint 🔓 y{x};
+bigint 🔒 z{x + 10};
+y = y * z + a;
+bye y;

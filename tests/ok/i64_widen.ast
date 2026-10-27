@@ -1,0 +1,7 @@
+Program
+  Decl x i32 const
+    Const 15
+  Decl y i64 const
+    Var x
+  Exit
+    Var y

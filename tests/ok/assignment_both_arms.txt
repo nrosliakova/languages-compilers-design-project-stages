@@ -1,0 +1,11 @@
+minint 🔓 r{0};
+bigint 🔒 n{3};
+chat n == 3
+👇
+ r = 1;
+👆
+nah
+👇
+ r = 2;
+👆
+bye r;

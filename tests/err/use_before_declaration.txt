@@ -1,0 +1,3 @@
+minint 🔒 x{y};
+minint 🔒 y{5};
+bye x;

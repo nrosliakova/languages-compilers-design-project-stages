@@ -1,0 +1,8 @@
+chat yea
+👇
+ bye 1;
+👆
+nah
+👇
+👆
+bye 0;

@@ -1,0 +1,11 @@
+minint 🔓 a{10};
+vibe 🔒 b{yea};
+chat b
+👇
+ a = a + 5;
+👆
+nah
+👇
+ a = a - 5;
+👆
+bye a;

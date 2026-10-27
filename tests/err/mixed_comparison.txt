@@ -1,0 +1,3 @@
+vibe 🔒 b{yea};
+vibe 🔒 result{b == 1};
+bye result;

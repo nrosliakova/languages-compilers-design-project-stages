@@ -1,0 +1,5 @@
+minint 🔒 x{2 + 3 * 4};
+minint 🔓 y{10 - 3 - 2};
+y = y * 2 - 1;
+minint 🔒 z{x * y - 6};
+bye z;

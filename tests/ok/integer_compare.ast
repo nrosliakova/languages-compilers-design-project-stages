@@ -1,0 +1,11 @@
+Program
+  Decl x i32 const
+    Const 10
+  Decl y i64 const
+    Const 10
+  Decl same bool const
+    BinOp ==
+      Var x
+      Var y
+  Exit
+    Var same

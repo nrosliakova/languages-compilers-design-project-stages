@@ -1,0 +1,12 @@
+minint 🔓 x{10};
+chat yea
+👇
+ vibe 🔓 x{yea};
+ chat x
+ 👇
+  bigint 🔓 x{20};
+  bye x;
+ 👆
+ bye x;
+👆
+bye x;

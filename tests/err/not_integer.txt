@@ -1,0 +1,3 @@
+minint 🔒 n{1};
+vibe 🔒 b{!n};
+bye 0;

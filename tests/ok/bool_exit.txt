@@ -1,0 +1,2 @@
+vibe 🔒 result{cap};
+bye result;
