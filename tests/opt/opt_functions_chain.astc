@@ -1,0 +1,5 @@
+Program
+  Print
+    Const 1
+  Exit
+    Const 0

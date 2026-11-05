@@ -1882,6 +1882,340 @@ class SemanticChecker:
                     f"through a const object or field",
                 )
             
+# ---------------------------------------------------------------------------
+# Stage 3 optimizer: unused declarations, unused functions, and inlining.
+# Runs on the checked tree, before code generation, behind --optimize.
+# ---------------------------------------------------------------------------
+
+LINK_FIELDS = {
+    "fn", "decl", "declaration", "lowered_struct", "pointer", "llvm_fn",
+    "limit", "indices", "mut_flags", "type", "target_type",
+}
+
+
+def walk(node):
+    """Every node under `node`, without following the checker's links."""
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        if not isinstance(current, Node):
+            continue
+        yield current
+        for name, value in vars(current).items():
+            if name in LINK_FIELDS:
+                continue
+            if isinstance(value, Node):
+                stack.append(value)
+            elif isinstance(value, (list, tuple)):
+                for item in value:
+                    if isinstance(item, Node):
+                        stack.append(item)
+                    elif isinstance(item, tuple):
+                        for part in item:
+                            if isinstance(part, Node):
+                                stack.append(part)
+
+
+def contains_call(node):
+    return any(
+        isinstance(item, (CallNode, MemberCallNode)) for item in walk(node)
+    )
+
+
+class UseCounter:
+    """Counts the reads of every declaration and the calls of every function."""
+
+    def __init__(self):
+        self.reads = {}
+        self.calls = {}
+        self.declarations = []
+        self.functions = []
+
+    def read(self, decl):
+        if decl is not None:
+            self.reads[id(decl)] = self.reads.get(id(decl), 0) + 1
+
+    def count(self, program):
+        for statement in program.statements:
+            if isinstance(statement, FnNode):
+                self.functions.append(statement)
+                self.calls.setdefault(id(statement), 0)
+
+        for node in walk(program):
+            if isinstance(node, DeclNode):
+                self.declarations.append(node)
+                self.reads.setdefault(id(node), 0)
+                if any(
+                    contains_call(value)
+                    for value in [node.init] + list(node.extra_inits)
+                ):
+                    # The initialiser may print or read, so it has to stay.
+                    self.read(node)
+            elif isinstance(node, AssignNode):
+                if contains_call(node.value):
+                    self.read(node.decl)
+            elif isinstance(node, VarNode):
+                self.read(node.decl)
+            elif isinstance(node, FieldAccessNode):
+                self.read(node.decl)
+            elif isinstance(node, CallNode):
+                if node.fn is not None:
+                    self.calls[id(node.fn)] = self.calls.get(id(node.fn), 0) + 1
+
+
+class Pruner:
+    """Drops the statements that the counter found dead."""
+
+    def __init__(self, dead):
+        self.dead = dead
+
+    def prune(self, program):
+        self.prune_list(program)
+        for node in walk(program):
+            if isinstance(node, BlockNode):
+                self.prune_list(node)
+
+    def prune_list(self, container):
+        container.statements = [
+            statement
+            for statement in container.statements
+            if not self.is_dead(statement)
+        ]
+
+    def is_dead(self, node):
+        if isinstance(node, (DeclNode, FnNode)):
+            return id(node) in self.dead
+        if isinstance(node, AssignNode):
+            return id(node.decl) in self.dead
+        return False
+
+
+def remove_unused_once(program):
+    """One round of unused variables and unused functions."""
+    counter = UseCounter()
+    counter.count(program)
+
+    dead = {
+        id(declaration)
+        for declaration in counter.declarations
+        if counter.reads.get(id(declaration), 0) == 0
+    }
+    dead |= {
+        id(function)
+        for function in counter.functions
+        if counter.calls.get(id(function), 0) == 0
+    }
+
+    if not dead:
+        return False
+
+    Pruner(dead).prune(program)
+    return True
+
+
+def children_of(node):
+    for name, value in vars(node).items():
+        if name in LINK_FIELDS:
+            continue
+        if isinstance(value, Node):
+            yield value
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, Node):
+                    yield item
+                elif isinstance(item, tuple):
+                    for part in item:
+                        if isinstance(part, Node):
+                            yield part
+
+
+def nested_blocks(node):
+    """The blocks directly inside `node`, without entering another block."""
+    found = []
+    stack = list(children_of(node))
+    while stack:
+        current = stack.pop()
+        if isinstance(current, BlockNode):
+            found.append(current)
+        else:
+            stack.extend(children_of(current))
+    return found
+
+
+def holds(node, target):
+    return any(item is target for item in walk(node))
+
+
+def locate_list(statements, owner, target):
+    """The innermost statement list and statement that hold `target`."""
+    for statement in statements:
+        for block in nested_blocks(statement):
+            found = locate_list(block.statements, block, target)
+            if found is not None:
+                return found
+        if holds(statement, target):
+            return statements, statement
+    exit_node = getattr(owner, "exit_node", None)
+    if exit_node is not None and holds(exit_node, target):
+        return statements, exit_node
+    return None
+
+
+def locate(program, target):
+    return locate_list(program.statements, program, target)
+
+
+def in_loop_header(statement, target):
+    """A call in a loop header runs once per iteration, so it is not hoisted."""
+    if isinstance(statement, WhileNode):
+        return any(item is target for item in walk(statement.condition))
+    if isinstance(statement, ForNode):
+        return any(
+            item is target
+            for item in list(walk(statement.start)) + list(walk(statement.end))
+        )
+    return False
+
+
+def is_recursive(function):
+    return any(
+        isinstance(node, CallNode) and node.name == function.name
+        for node in walk(function.body)
+    )
+
+
+def leaves_once(block):
+    """True when the only bye in the body is the final one of the function."""
+    for node in walk(block):
+        if isinstance(node, ExitNode) and node is not block.exit_node:
+            return False
+    return block.exit_node is not None
+
+
+def single_call(program, function):
+    found = [
+        node
+        for node in walk(program)
+        if isinstance(node, CallNode) and node.fn is function
+    ]
+    return found[0] if len(found) == 1 else None
+
+
+def replace_node(root, target, replacement):
+    for node in walk(root):
+        for name, value in vars(node).items():
+            if name in LINK_FIELDS:
+                continue
+            if value is target:
+                setattr(node, name, replacement)
+                return True
+            if isinstance(value, list):
+                for index, item in enumerate(value):
+                    if item is target:
+                        value[index] = replacement
+                        return True
+    return False
+
+
+def inline_at(program, function, call, site):
+    statements, statement = site
+    program.inline_sites += 1
+    suffix = f"#{program.inline_sites}"
+
+    names = {param.name for param in function.params}
+    for node in walk(function.body):
+        if isinstance(node, (DeclNode, ForNode)):
+            names.add(node.name)
+    rename = {name: f"{name}{suffix}" for name in names}
+
+    for node in walk(function.body):
+        if isinstance(node, (DeclNode, AssignNode, VarNode, ForNode)):
+            if node.name in rename:
+                node.name = rename[node.name]
+
+    # A parameter becomes a local declaration holding the argument, and the
+    # body's reads of the parameter are pointed at that declaration.
+    param_decls = {}
+    for param in function.params:
+        param_decls[id(param)] = DeclNode(
+            param.line,
+            param.column,
+            rename[param.name],
+            param.type_name,
+            False,
+            None,
+        )
+    for node in walk(function.body):
+        if isinstance(node, (VarNode, FieldAccessNode, AssignNode)):
+            replacement = param_decls.get(id(node.decl))
+            if replacement is not None:
+                node.decl = replacement
+
+    inserted = []
+    for param, argument in zip(function.params, call.args):
+        declaration = param_decls[id(param)]
+        declaration.init = argument
+        inserted.append(declaration)
+    inserted.extend(function.body.statements)
+
+    result = DeclNode(
+        call.line,
+        call.column,
+        f"result{suffix}",
+        function.result_type,
+        False,
+        function.body.exit_node.value,
+    )
+    inserted.append(result)
+
+    value = VarNode(call.line, call.column, f"result{suffix}")
+    value.type = call.type
+    value.decl = result
+    replace_node(statement, call, value)
+
+    try:
+        index = statements.index(statement)
+    except ValueError:
+        index = len(statements)
+    statements[index:index] = inserted
+
+
+def inline_once(program):
+    """Inlines one function that is called exactly once."""
+    counter = UseCounter()
+    counter.count(program)
+
+    for function in counter.functions:
+        if counter.calls.get(id(function), 0) != 1:
+            continue
+        if is_recursive(function) or not leaves_once(function.body):
+            continue
+
+        call = single_call(program, function)
+        if call is None:
+            continue
+
+        site = locate(program, call)
+        if site is None or in_loop_header(site[1], call):
+            continue
+
+        inline_at(program, function, call, site)
+        return True
+
+    return False
+
+
+def optimize_program(program):
+    """Runs the three transformations until a full round changes nothing."""
+    program.inline_sites = 0
+    while True:
+        changed = remove_unused_once(program)
+        if inline_once(program):
+            changed = True
+        if not changed:
+            return program
+
+
 class CodeGenerator:
     def visit_callstmt(self, node):
         node.value.accept(self)
@@ -2592,25 +2926,30 @@ def print_error(error):
 
 
 def main():
-    ast_mode = len(sys.argv) == 3 and sys.argv[1] == "--ast"
-    checked_mode = len(sys.argv) == 3 and sys.argv[1] == "--ast-checked"
-    compile_mode = (
-        len(sys.argv) == 3
-        and sys.argv[1] not in {"--ast", "--ast-checked"}
-    )
+    flags = {argument for argument in sys.argv[1:] if argument.startswith("--")}
+    paths = [argument for argument in sys.argv[1:] if not argument.startswith("--")]
+    ast_mode = "--ast" in flags
+    checked_mode = "--ast-checked" in flags
+    optimize = "--optimize" in flags
+    printing = ast_mode or checked_mode
 
-    if not ast_mode and not checked_mode and not compile_mode:
+    known = {"--ast", "--ast-checked", "--optimize"}
+    if (
+        flags - known
+        or (ast_mode and checked_mode)
+        or not ((printing and len(paths) == 1) or (not printing and len(paths) == 2))
+    ):
         print(
             "usage:\n"
-            "  python3 compiler.py SOURCE OUTPUT.ll\n"
-            "  python3 compiler.py --ast SOURCE\n"
-            "  python3 compiler.py --ast-checked SOURCE",
+            "  python3 compiler.py SOURCE OUTPUT.ll [--optimize]\n"
+            "  python3 compiler.py --ast SOURCE [--optimize]\n"
+            "  python3 compiler.py --ast-checked SOURCE [--optimize]",
             file=sys.stderr,
         )
         return 1
 
-    source_path = sys.argv[2] if ast_mode or checked_mode else sys.argv[1]
-    output_path = None if ast_mode or checked_mode else sys.argv[2]
+    source_path = paths[0]
+    output_path = None if printing else paths[1]
 
     if output_path is not None:
         try:
@@ -2620,12 +2959,14 @@ def main():
 
     try:
         program = load_program(source_path)
-        if ast_mode:
+        if ast_mode and not optimize:
             print(program.accept(AstPrinter()))
             return 0
 
         SemanticChecker().check(program)
-        if checked_mode:
+        if optimize:
+            optimize_program(program)
+        if printing:
             print(program.accept(AstPrinter()))
             return 0
         module = CodeGenerator().generate(program)

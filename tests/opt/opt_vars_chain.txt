@@ -1,0 +1,6 @@
+minint 🔒 first{1};
+minint 🔒 second{first + 1};
+minint 🔒 third{second + 1};
+minint 🔓 kept{3};
+say(kept);
+bye kept;

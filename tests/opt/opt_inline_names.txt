@@ -1,0 +1,18 @@
+fn pick(minint n) -> minint
+👇
+    chat n == 0
+    👇
+        bye 100;
+    👆
+    bye n;
+👆
+fn shift(minint n) -> minint
+👇
+    minint 🔒 n2{n + 1};
+    bye n2;
+👆
+minint 🔒 n2{41};
+say(shift(n2));
+say(pick(0));
+say(n2);
+bye 0;

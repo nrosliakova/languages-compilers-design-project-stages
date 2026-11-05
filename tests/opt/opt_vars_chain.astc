@@ -1,0 +1,7 @@
+Program
+  Decl kept i32 mut
+    Const 3
+  Print
+    Var kept
+  Exit
+    Var kept

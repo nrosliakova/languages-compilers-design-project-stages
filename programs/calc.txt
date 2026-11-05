@@ -1,0 +1,85 @@
+struct Register
+👇
+    minint 🔓 value;
+    minint 🔓 steps;
+    fn add(minint amount) -> minint
+    👇
+        value = value + amount;
+        steps = steps + 1;
+        bye value;
+    👆
+    fn scale(minint factor) -> minint
+    👇
+        value = value * factor;
+        steps = steps + 1;
+        bye value;
+    👆
+    fn report() -> minint
+    👇
+        say("value");
+        say(value);
+        say("steps");
+        say(steps);
+        bye value;
+    👆
+👆
+fn menu() -> minint
+👇
+    say("running total");
+    say("1 add, 2 multiply, 3 show, 4 add three times, 9 stop, 0 quit");
+    bye 0;
+👆
+Register 🔓 account{0, 0};
+menu();
+minint 🔓 command{1};
+while command != 0
+👇
+    say("command?");
+    command = listen();
+    chat command == 1
+    👇
+        say("amount?");
+        minint 🔒 amount{listen()};
+        say(account.add(amount));
+    👆
+    nah
+    👇
+        chat command == 2
+        👇
+            say("factor?");
+            minint 🔒 factor{listen()};
+            say(account.scale(factor));
+        👆
+        nah
+        👇
+            chat command == 3
+            👇
+                account.report();
+            👆
+            nah
+            👇
+                chat command == 4
+                👇
+                    say("amount?");
+                    minint 🔒 amount{listen()};
+                    for minint 🔒 round from 1 to 3
+                    👇
+                        account.add(amount);
+                        say(round);
+                    👆
+                    say(account.value);
+                👆
+                nah
+                👇
+                    chat command == 9
+                    👇
+                        say("stopping");
+                        break;
+                    👆
+                👆
+            👆
+        👆
+    👆
+👆
+account.report();
+bye 0;

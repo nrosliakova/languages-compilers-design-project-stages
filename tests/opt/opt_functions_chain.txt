@@ -1,0 +1,16 @@
+fn third() -> minint
+👇
+    bye 3;
+👆
+fn second() -> minint
+👇
+    minint 🔒 v{third()};
+    bye v;
+👆
+fn first() -> minint
+👇
+    minint 🔒 v{second()};
+    bye v;
+👆
+say(1);
+bye 0;

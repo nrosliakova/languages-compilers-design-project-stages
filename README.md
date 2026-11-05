@@ -1,12 +1,13 @@
 # Languages and Compilers Design — Course Project
 
 > Implementation status: this working copy implements the agreed Stage 2 language
-> plus the Stage 3 loop feature (`while`, `for` over an integer range, `break`).
-> It passes the included regression suite using both LLVM JIT and native
-> LLVM object code linked with GCC, while retaining the original Stage 1
-> fixtures. Standalone `lli` execution still needs verification on the
-> submission machine. The Stage 3 optimizer and the Stage 3 program are not in
-> this working copy yet.
+> plus the three Stage 3 parts: the loop feature (`while`, `for` over an integer
+> range, `break`), the optimizer behind `--optimize` (unused variables, unused
+> functions, inlining), and the program in `programs/`. It passes the included
+> regression suite using both LLVM JIT and native LLVM object code linked with
+> GCC, with and without `--optimize`, while retaining the original Stage 1
+> fixtures. Standalone `lli`, `llc` and `clang` execution still needs
+> verification on the submission machine.
 
 ## Stage 1 language syntax
 
@@ -536,7 +537,169 @@ python3 compiler.py tests/stage3/ok/loops_for_range.txt output.ll
 python3 run_stage2_tests.py --engine jit
 ```
 
+## Stage 3: the optimizer
+
+`--optimize` may stand anywhere on the command line. It runs the three
+transformations on the checked tree, before code generation, and repeats them
+until a full round changes nothing. Together with `--ast` it prints the tree
+after optimization. Without the flag the compiler behaves exactly as before.
+
+```bash
+python3 compiler.py --optimize tests/opt/opt_inline_basic.txt output.ll
+python3 compiler.py --optimize --ast tests/opt/opt_inline_basic.txt
+python3 run_stage2_tests.py --engine jit --optimize
+```
+
+### Unused variables
+
+A declaration that nothing reads is removed together with every assignment to
+it, again and again until a pass removes nothing: removing an initialiser can
+take away the last read of another declaration. Scopes and shadowing are
+respected because the count uses the links the checker already resolved, so two
+declarations that share a name are two counters. A declaration whose
+initialiser contains a call stays, and so does an assignment whose value
+contains one, together with the declaration of its variable: the call may print
+or read. `listen()` counts the same way. Parameters, fields and member functions
+are never removed.
+
+### Unused functions
+
+A global function that nothing calls is removed with its whole body, again and
+again: removing a body can take away the last call of another function. Member
+functions are never removed, and a call from inside a member function counts as
+a call.
+
+### Inlining
+
+A global function that is called exactly once is replaced at its call site by
+its body: each parameter becomes a local declaration initialised with the
+argument, the body's final `bye` becomes the initialiser of a `result#N`
+declaration that stands where the call stood, and every parameter and local of
+the body is renamed with a `#N` suffix so it cannot collide with the caller's
+names. The call is then gone, so the next round removes the function as unused.
+`N` counts the inline sites of the compilation, so a renamed name never repeats.
+
+What is left alone, and why:
+
+- a recursive function, and any function called more than once;
+- a body that leaves through a `bye` inside a `chat`, a `while` or a `for`, so
+  that a second exit would need a second result variable;
+- a call in the condition of a `while` or in the bounds of a `for`, because
+  hoisting the body above the loop would run it once instead of once per
+  iteration;
+- a member function, which would also need its receiver inlined.
+
+### Before and after, for `tests/opt/opt_inline_basic.txt`
+
+Before, `main` calls the function and the function is a separate definition:
+
+```llvm
+define i32 @"main"()
+{
+entry:
+  %"v" = alloca i32
+  %"double.result" = call i32 @"fn_double"(i32 21)
+  store i32 %"double.result", i32* %"v"
+...
+define i32 @"fn_double"(i32 %"n")
+{
+entry:
+  %"twice" = alloca i32
+  %"n.1" = alloca i32
+  store i32 %"n", i32* %"n.1"
+```
+
+After, the definition is gone and its slots live in `main`, renamed:
+
+```llvm
+entry:
+  %"v" = alloca i32
+  %"result#1" = alloca i32
+  %"twice#1" = alloca i32
+  %"n#1" = alloca i32
+  store i32 21, i32* %"n#1"
+  %"n#1.value" = load i32, i32* %"n#1"
+  %"checked.arithmetic" = call {i32, i1} @"llvm.smul.with.overflow.i32"(i32 %"n#1.value", i32 2)
+...
+runtime.continue:
+  store i32 %"arithmetic.result", i32* %"twice#1"
+  %"twice#1.value" = load i32, i32* %"twice#1"
+  store i32 %"twice#1.value", i32* %"result#1"
+  %"result#1.value" = load i32, i32* %"result#1"
+  store i32 %"result#1.value", i32* %"v"
+```
+
+The parameter slot `n#1` now holds the literal 21 instead of an incoming
+argument, and the body's checked multiply runs in `main`. The three loads and
+stores that copy the value into `v` are what the AST inlining leaves behind:
+each step is one declaration the source language requires, and LLVM's `mem2reg`
+removes them.
+
+### The optimizer's tests
+
+`tests/opt` holds six programs, two per transformation. Each has a `.astc` file
+(the tree after `--optimize --ast`) and an `.expected` file that the output must
+match with and without the flag.
+
+| File | What it pins |
+| --- | --- |
+| `opt_vars_chain.txt` | three declarations removed in three rounds, because each removal frees the next |
+| `opt_vars_scope.txt` | a shadowed dead declaration in an inner block, a declaration kept only because its initialiser calls, and a function kept because two calls name it |
+| `opt_functions_chain.txt` | three functions removed in three rounds, the last two only after their callers go |
+| `opt_functions_kept.txt` | a function called twice and a member function, both kept |
+| `opt_inline_basic.txt` | one inlined function, renamed slots, function removed |
+| `opt_inline_names.txt` | a caller local `n2` that the inlined body must not capture, and a second function left alone because it leaves through a `bye` inside a `chat` |
+
+Every other test of the suite also passes with `--optimize`, and the recorded
+program sessions produce the same output with and without it.
+
+## Stage 3: the program
+
+`programs/calc.txt` is a running-total calculator a person can use. It prints a
+menu, asks for a command, and keeps the total and a step count in a `Register`
+structure with three member functions: `add`, `scale` and `report`. Command 1
+adds an amount, 2 multiplies by a factor, 3 shows the register, 4 adds the same
+amount three times with a `for` loop that prints each round, 9 stops at once
+with `break`, and 0 leaves the `while` loop. The global function `menu` prints
+the commands; `listen()` reads every number and `say` prints every line, so the
+loop, the structure, a function and the input/output built-ins are all on the
+visible path of the program.
+
+Two sessions are recorded, and the test script runs both:
+
+| Session | What it types |
+| --- | --- |
+| `programs/calc.tour.in` | add 5, add 7, show, add 2 three times, stop with 9 |
+| `programs/calc.quick.in` | add 4, multiply by 5, show, quit with 0 |
+
+```bash
+python3 compiler.py programs/calc.txt programs/calc.ll
+llc programs/calc.ll -o programs/calc.s
+clang programs/calc.s -o programs/calc
+./programs/calc < programs/calc.tour.in
+./programs/calc < programs/calc.quick.in
+python3 run_stage2_tests.py --engine native
+```
+
+The three commands write `calc.ll`, `calc.s` and `calc` into `programs/`, which
+`.gitignore` keeps out of the branch. `lli` runs the same module but is not the
+deliverable; the binary built with `llc` and `clang` is.
+
 ## Submission checklist and implementation verification
+
+- Stage 3: `stage3` is branched from `stage2`; the loop feature, the optimizer
+  and the program are in it with their tests; `ai_usage_3.txt` is written.
+  Still to do: push the branch, open the draft pull request `stage3` → `main`
+  naming the feature, request `vovaskochko` as a reviewer, merge the Stage 2 pull
+  request once it is graded so this one shows only Stage 3, submit the link and
+  `ai_usage_3.txt` in Moodle, and upload the defence slides by Tuesday
+  10 November, 12:00.
+
+```bash
+git push -u origin stage3
+```
+
+The Stage 2 checklist below is kept as the record of how that stage was built.
 
 - Preserve the original Stage 1 fixtures and rerun their AST/output comparisons.
 - Implement the draft grammar in the hand-written lexer and recursive-descent parser.
@@ -598,14 +761,17 @@ output-file cleanup. It includes input fixtures and runtime-error fixtures.
 The original `check.py`, `run_tests.sh` and `run_stage1_tests.sh` remain available
 for the original Stage 1 suites; use `run_stage2_tests.py` for both stages.
 
-Latest local QA: **236 checks passed, 0 failed in each execution mode**
-(LLVM JIT and native object code linked with GCC):
+Latest local QA: **256 checks passed, 0 failed** in each of three runs: LLVM JIT,
+LLVM JIT with `--optimize` on every program, and native object code linked with
+GCC with `--optimize`.
 
 - 59 AST snapshots (16 original Stage 1, 39 Stage 2, 4 Stage 3 loops).
 - 59 valid end-to-end execution cases.
 - 20 original lexical/syntax-error AST cases.
 - 80 invalid compilation cases (20 original, 55 Stage 2, 5 Stage 3 loops).
 - 18 runtime-error cases (overflow and invalid input).
+- 6 optimized trees, 6 optimized runs and 6 unoptimized runs from `tests/opt`.
+- 2 recorded sessions of `programs/calc.txt`.
 
 Tested with Python 3.13, llvmlite 0.49.0 and LLVM 22.1.0 on Linux, using
 both the JIT helper and LLVM-native/GCC linking.

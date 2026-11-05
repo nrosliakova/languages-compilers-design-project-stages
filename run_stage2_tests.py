@@ -16,6 +16,11 @@ def run(command, stdin=b''):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--engine', choices=['lli', 'jit', 'native'], default='lli')
+    parser.add_argument(
+        '--optimize',
+        action='store_true',
+        help='compile every program with --optimize and check the same expected output',
+    )
     args = parser.parse_args()
     if args.engine == 'lli' and shutil.which('lli') is None:
         print('ERROR: lli not found. Install LLVM or use --engine jit for local QA.')
@@ -27,6 +32,22 @@ def main():
               [sys.executable, str(ROOT / ('tools/run_native.py' if args.engine == 'native' else 'tools/run_ir.py'))])
     passed = failed = 0
     totals = {}
+
+    def record(kind, good, source, actual=None):
+        nonlocal passed, failed
+        if not good:
+            print('FAIL', kind, source.relative_to(ROOT))
+            if actual is not None:
+                print('  return code:', actual.returncode)
+                print('  stdout:', repr(actual.stdout))
+                print('  stderr:', repr(actual.stderr))
+        else:
+            print('PASS', kind, source.relative_to(ROOT))
+        passed += int(good)
+        failed += int(not good)
+        counts = totals.setdefault(kind, [0, 0])
+        counts[0 if good else 1] += 1
+
     with tempfile.TemporaryDirectory(prefix='stage2_tests_') as directory:
         output = Path(directory) / 'program.ll'
         cases = []
@@ -46,19 +67,32 @@ def main():
             cases.extend([('ast', source), ('valid', source)])
         for source in sorted((ROOT/'tests/stage3/err').glob('*.txt')):
             cases.append(('invalid', source))
+        for source in sorted((ROOT/'tests/opt').glob('*.txt')):
+            cases.extend([('astc', source), ('optimized', source), ('plain', source)])
+
         for kind, source in cases:
             try:
-                if kind in {'ast', 'ast_error'}:
-                    actual = run([sys.executable, str(ROOT/'compiler.py'), '--ast', str(source)])
-                    expected = source.with_suffix('.ast' if kind == 'ast' else '.expected').read_bytes()
+                if kind in {'ast', 'ast_error', 'astc'}:
+                    command = [sys.executable, str(ROOT/'compiler.py'), '--ast']
+                    if kind == 'astc':
+                        command.append('--optimize')
+                    actual = run(command + [str(source)])
                     if kind == 'ast':
+                        expected = source.with_suffix('.ast').read_bytes()
+                        good = actual.returncode == 0 and not actual.stderr and actual.stdout == expected
+                    elif kind == 'astc':
+                        expected = source.with_suffix('.astc').read_bytes()
                         good = actual.returncode == 0 and not actual.stderr and actual.stdout == expected
                     else:
+                        expected = source.with_suffix('.expected').read_bytes()
                         good = actual.returncode != 0 and not actual.stdout and actual.stderr == expected
                 else:
                     # Seed an old output to verify that a failing compilation removes it.
                     output.write_text('stale output')
-                    compiled = run([sys.executable, str(ROOT/'compiler.py'), str(source), str(output)])
+                    command = [sys.executable, str(ROOT/'compiler.py')]
+                    if kind == 'optimized' or (args.optimize and kind != 'plain'):
+                        command.append('--optimize')
+                    compiled = run(command + [str(source), str(output)])
                     actual = compiled
                     if kind == 'invalid':
                         good = (compiled.returncode != 0 and not compiled.stdout and not output.exists()
@@ -68,26 +102,37 @@ def main():
                         if good:
                             stdin = source.with_suffix('.in').read_bytes() if source.with_suffix('.in').exists() else b''
                             actual = run(engine + [str(output)], stdin)
-                            if kind == 'valid':
-                                good = actual.returncode == 0 and not actual.stderr and actual.stdout == source.with_suffix('.expected').read_bytes()
+                            if kind in {'valid', 'optimized', 'plain'}:
+                                good = (actual.returncode == 0 and not actual.stderr
+                                        and actual.stdout == source.with_suffix('.expected').read_bytes())
                             else:
                                 good = (actual.returncode != 0
                                         and actual.stderr == source.with_suffix('.expected').read_bytes()
                                         and actual.stdout == source.with_suffix('.out').read_bytes())
-                if not good:
-                    print('FAIL', kind, source.relative_to(ROOT))
-                    print('  return code:', actual.returncode)
-                    print('  stdout:', repr(actual.stdout))
-                    print('  stderr:', repr(actual.stderr))
-                else:
-                    print('PASS', kind, source.relative_to(ROOT))
+                record(kind, good, source, actual)
             except (OSError, subprocess.TimeoutExpired) as error:
-                good = False
                 print('FAIL', kind, source.relative_to(ROOT), error)
-            passed += int(good)
-            failed += int(not good)
-            counts = totals.setdefault(kind, [0, 0])
-            counts[0 if good else 1] += 1
+                record(kind, False, source)
+
+        # programs/NAME.txt with one or more recorded sessions NAME.SESSION.in.
+        for session in sorted((ROOT/'programs').glob('*.in')):
+            source = session.parent / (session.name.split('.')[0] + '.txt')
+            try:
+                command = [sys.executable, str(ROOT/'compiler.py')]
+                if args.optimize:
+                    command.append('--optimize')
+                compiled = run(command + [str(source), str(output)])
+                good = compiled.returncode == 0 and not compiled.stdout and not compiled.stderr
+                actual = compiled
+                if good:
+                    actual = run(engine + [str(output)], session.read_bytes())
+                    good = (actual.returncode == 0 and not actual.stderr
+                            and actual.stdout == session.with_suffix('.expected').read_bytes())
+                record('program', good, session, actual)
+            except (OSError, subprocess.TimeoutExpired) as error:
+                print('FAIL', 'program', session.relative_to(ROOT), error)
+                record('program', False, session)
+
     print('\nCategory: passed / failed')
     for kind, counts in totals.items():
         print(f'{kind}: {counts[0]} / {counts[1]}')

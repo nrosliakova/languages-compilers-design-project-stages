@@ -1,0 +1,8 @@
+fn double(minint n) -> minint
+👇
+    minint 🔒 twice{n * 2};
+    bye twice;
+👆
+minint 🔒 v{double(21)};
+say(v);
+bye v;

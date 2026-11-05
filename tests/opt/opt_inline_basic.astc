@@ -1,0 +1,15 @@
+Program
+  Decl n#1 i32 const
+    Const 21
+  Decl twice#1 i32 const
+    BinOp *
+      Var n#1
+      Const 2
+  Decl result#1 i32 const
+    Var twice#1
+  Decl v i32 const
+    Var result#1
+  Print
+    Var v
+  Exit
+    Var v

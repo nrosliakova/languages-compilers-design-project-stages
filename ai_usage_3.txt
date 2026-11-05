@@ -1,0 +1,178 @@
+AI USAGE — COURSE PROJECT STAGE 3
+Languages and Compilers Design — loops, the optimizer, and the program
+
+
+======================================================================
+TOOLS USED
+======================================================================
+
+- Notion AI, working as an agent in my Notion workspace with a Linux sandbox
+  attached to the repository. It read the code, edited the files, ran the test
+  suite, generated the IR, and wrote the drafts of the README sections, the
+  grammar and this file.
+- Python 3.13 with llvmlite 0.50.0, used to run the suite through the JIT
+  helper and through LLVM object code linked with cc.
+- git, for the stage3 branch and the commit.
+
+No other assistant, plugin or code generator was used. The practice-9 optimizer
+that I reused is my own earlier coursework from the practices repository, not
+code written by anyone else.
+
+Full chat transcript: https://app.notion.com/chat?t=40f73e86a420803faf9300a900db8926
+The prompts are quoted below as well, so this file does not depend on that link.
+
+
+======================================================================
+PROMPTS, IN THE ORDER I SENT THEM
+======================================================================
+
+1. "read the task and analyse my repos, both exclude pycache and venv"
+   Sent with two archives attached: stages.zip (the project repository at
+   stage2) and practices.zip (the practices repository at practice-9).
+
+2. "do task 1"
+   Meaning Task 1 of the Stage 3 assignment: one feature of my own.
+
+3. "do the rest"
+   Meaning Task 2 (the optimizer), Task 3 (the program), and the remaining
+   paperwork for this file and the README.
+
+Earlier work in the same project used the same tool for Stage 1 and Stage 2;
+those prompts are in ai_usage.txt and ai_usage_2.txt.
+
+
+======================================================================
+WHAT I TOOK AS IT WAS, WHAT I CHANGED, AND WHY
+======================================================================
+
+--- Part 0: reading the repository (first prompt) ---------------------------
+
+The agent unpacked both repositories, installed llvmlite in its sandbox, ran
+run_stage2_tests.py --engine jit and got 223 passed, 0 failed. It then read
+src/compiler.py and reported three things that decided the plan:
+
+  - Stage 3 was at zero: no stage3 branch, no feature, no optimizer, no
+    programs/ directory, no ai_usage_3.txt.
+  - WhileNode, and visit_while in the checker, the printer and the code
+    generator, were already in the file from the practice port, but the parser
+    had no parse_while, so `while` could not be written in the language.
+  - The practice-9 unused-code pass in the practices repository removes unread
+    declarations and uncalled functions, which is the first two thirds of
+    Task 2, and this repository's AST has the same shape.
+
+Nothing was committed in that turn. This is the reasoning behind choosing
+Loops as the feature and doing the work in this order.
+
+--- Part 1: the loop feature ------------------------------------------------
+
+Already in the repository, and kept as it was:
+
+  - WhileNode, and the checker's visit_while, AstPrinter.visit_while and
+    CodeGenerator.visit_while, which emits the condition, body and end blocks
+    and the back edge.
+  - The block, statement, scope and expression machinery of the parser and the
+    checker, and the error format.
+
+Written by the agent and reviewed by me:
+
+  - ForNode and BreakNode in the AST.
+  - parse_while, parse_for and parse_break, and the contextual dispatch in
+    parse_statement. The dispatch is the part that matters: `while` starts a
+    loop only when the next token is not "=", "." or "(" or ";", `for` starts a
+    loop only when a type name follows, and `break` is a statement only as
+    `break;`. That is why an existing test that declares a variable named
+    `while` still compiles.
+  - The checker's loop depth, the counter's own scope, and the rule that the
+    counter is declared with the locked padlock.
+  - CodeGenerator.visit_for, which emits five blocks and leaves the loop before
+    the increment when the counter reaches the last value, and visit_break,
+    which branches to the end block of the innermost loop kept on a stack.
+  - Nine test programs, the grammar productions, and the README section.
+
+Why the counter is locked: the loop leaves before adding one when the counter
+equals the last value, so the single addition in the loop can never overflow,
+which is only true while nothing else can change the counter.
+
+--- Part 2: the optimizer ---------------------------------------------------
+
+Reused from my own practice 9, and changed for this repository:
+
+  - The idea of one visitor that counts, for every declaration, the reads that
+    resolve to it, and for every function, the calls that name it, then a
+    second pass that rebuilds statement lists without the dead ones, repeated
+    until a round removes nothing.
+  - The rule that a declaration whose initialiser contains a call is never
+    dropped, and that parameters, fields and member functions are never
+    removed.
+
+Rewritten rather than copied, because the ASTs differ:
+
+  - UseCounter and Pruner here follow the checker's resolved links (VarNode.decl,
+    FieldAccessNode.decl, CallNode.fn) over this repository's nodes, which
+    include ForNode, CallStmtNode and extra_inits, and they walk the tree with
+    a helper that does not follow those links, so a recursive function cannot
+    send the walk into itself.
+  - The call counting in the practices version counts calls to methods through
+    their lowered structs; here member functions are never removed, so a call
+    from a method body counts and nothing else is needed.
+
+Written from scratch:
+
+  - The inlining pass, the --optimize flag, and its place in the driver that
+    repeats the three passes until nothing changes.
+  - The inlining moves the body instead of copying it, so the declaration links
+    the checker already resolved stay valid and the compiler does not have to
+    re-check the tree. Each parameter becomes a local declaration holding the
+    argument, the final bye becomes a result declaration, and every parameter
+    and local of the body gets a #N suffix so it cannot collide with the
+    caller's names.
+  - One bug I found by running the suite with --optimize: the first version
+    looked for the statement holding the call from the outside in, so a call
+    inside a member function was hoisted to the top of the program and the code
+    generator crashed on a field reference. The search now takes the innermost
+    block first, and tests/stage2/ok/global_function_in_method.txt passes with
+    and without the flag.
+
+--- Part 3: the program -----------------------------------------------------
+
+The program programs/calc.txt, its two recorded sessions, and the README lines
+about it were written by the agent and reviewed by me. My first session input
+had a stray number in it, which the program correctly rejected with
+`runtime error: invalid input`; I fixed the input file, not the program.
+
+--- Part 4: paperwork -------------------------------------------------------
+
+The README sections, the grammar comments and this file were drafted by the
+agent from the work above. I checked the IR excerpts by generating the same
+files myself.
+
+
+======================================================================
+WHAT I UNDERSTOOD
+======================================================================
+
+Draft in plain language, for me to rewrite in my own words before submitting.
+
+The inlining pass works on the checked tree, after the checker has filled in
+every link from a use to its declaration. That is what makes it safe to move a
+function body instead of copying it: the links keep pointing at the same
+declaration objects, which are now inside the caller, so the code generator
+still finds the right alloca without the checker running again. The catch is
+that a parameter is not a declaration the body owns, it is a parameter of the
+function, so the pass has to create a real declaration for it and redirect
+every read of that parameter to the new declaration, or the code generator
+would look for a slot that was never allocated.
+
+The for loop leaves before it increments when the counter reaches the last
+value. That is not a micro-optimisation: it is the reason the increment needs
+no overflow check. The counter is locked, so it only ever changes in that one
+place, which means the counter is always less than or equal to the last value,
+so the addition can only be reached when there is room for it. Without the
+locked padlock the body could set the counter to the largest value and the
+increment would have to be checked like every other addition in the language.
+
+Counting reads with the checker's links is what makes the unused-variable pass
+respect shadowing for free: two declarations that happen to share a name are
+two different objects, so they get two counters, and removing one cannot
+disturb the other. The pass that removes them only has to rebuild the statement
+lists, because nothing in the tree points upwards to a parent.

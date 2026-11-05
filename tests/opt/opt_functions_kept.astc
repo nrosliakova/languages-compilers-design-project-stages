@@ -1,0 +1,31 @@
+Program
+  Struct Box
+    Field value i32 mut
+    MemberFn show -> i32
+      Block
+        Print
+          Var value
+        Exit
+          Var value
+  Fn twice -> i32
+    Param n i32
+    Block
+      Decl r i32 const
+        BinOp +
+          Var n
+          Var n
+      Exit
+        Var r
+  Decl b Box mut
+    Const 5
+  CallStmt
+    MemberCall show
+      Var b
+  Print
+    Call twice
+      Const 2
+  Print
+    Call twice
+      Const 3
+  Exit
+    Const 0
