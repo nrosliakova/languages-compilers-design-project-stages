@@ -1,0 +1,1 @@
+chat cap 👇 minint 🔒 x{2147483647 + 1}; say(x); 👆 bye 0;

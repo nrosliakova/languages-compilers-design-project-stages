@@ -1,0 +1,1 @@
+struct i32 👇 minint 🔒 x; 👆 bye 0;

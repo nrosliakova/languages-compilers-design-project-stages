@@ -1,0 +1,1 @@
+bigint 🔒 x{3000000000}; bigint 🔒 y{x * 2}; say(y); bye y;

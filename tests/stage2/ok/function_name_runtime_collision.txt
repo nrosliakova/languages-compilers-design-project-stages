@@ -1,0 +1,1 @@
+fn main() -> minint 👇 bye 7; 👆 fn printf() -> minint 👇 bye main(); 👆 bye printf();

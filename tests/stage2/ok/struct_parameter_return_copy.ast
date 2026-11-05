@@ -1,0 +1,19 @@
+Program
+  Struct Box
+    Field x i32 mut
+  Fn copy -> Box
+    Param b Box
+    Block
+      Exit
+        Var b
+  Decl a Box const
+    Const 1
+  Decl b Box mut
+    Call copy
+      Var a
+  Assign b
+    Const 2
+  Print
+    Var a
+  Exit
+    FieldAccess b.x

@@ -1,0 +1,11 @@
+Program
+  Decl x i64 const
+    Const 3000000000
+  Decl y i64 const
+    BinOp *
+      Var x
+      Const 2
+  Print
+    Var y
+  Exit
+    Var y

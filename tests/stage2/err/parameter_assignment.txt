@@ -1,0 +1,1 @@
+fn f(minint n) -> minint 👇 n = 2; bye n; 👆 bye 0;

@@ -1,0 +1,2 @@
+minint 🔒 x{1}; fn identity(minint x) -> minint 👇 bye x; 👆
+bye x;

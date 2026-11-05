@@ -1,0 +1,17 @@
+struct Point
+👇
+    minint 🔓 x;
+    minint 🔓 y;
+    fn move(minint dx, minint dy) -> minint
+    👇
+        x = x + dx;
+        y = y + dy;
+        bye 0;
+    👆
+    fn sum() -> minint
+    👇
+        minint 🔒 result{x + y};
+        bye result;
+    👆
+👆
+fn f(Point p) -> minint 👇 p.move(1, 2); bye 0; 👆 bye 0;

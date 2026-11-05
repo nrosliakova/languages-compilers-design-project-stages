@@ -1,0 +1,11 @@
+Program
+  Decl say i32 mut
+    Const 1
+  Assign say
+    BinOp +
+      Var say
+      Const 2
+  Print
+    Var say
+  Exit
+    Var say

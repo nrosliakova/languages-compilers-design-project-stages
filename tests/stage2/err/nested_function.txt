@@ -1,0 +1,2 @@
+chat yea 👇 fn identity(minint x) -> minint 👇 bye x; 👆
+ 👆 bye 0;

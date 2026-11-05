@@ -1,0 +1,3 @@
+fn first(minint x) -> minint 👇 bye second(x); 👆
+fn second(minint x) -> minint 👇 bye x; 👆
+bye first(9);

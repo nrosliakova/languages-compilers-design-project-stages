@@ -1,0 +1,19 @@
+struct Box
+👇
+    minint 🔓 value;
+    fn show() -> minint
+    👇
+        say(value);
+        bye value;
+    👆
+👆
+fn twice(minint n) -> minint
+👇
+    minint 🔒 r{n + n};
+    bye r;
+👆
+Box 🔓 b{5};
+b.show();
+say(twice(2));
+say(twice(3));
+bye 0;

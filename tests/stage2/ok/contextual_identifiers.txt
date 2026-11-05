@@ -1,0 +1,1 @@
+minint 🔓 fn{1}; minint 🔒 struct{2}; minint 🔒 listen{3}; minint 🔒 say{4}; fn = fn + struct; say(say); bye listen;

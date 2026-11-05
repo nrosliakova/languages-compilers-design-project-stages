@@ -1,0 +1,32 @@
+Program
+  Fn pick -> i32
+    Param n i32
+    Block
+      If
+        BinOp ==
+          Var n
+          Const 0
+        Block
+          Exit
+            Const 100
+      Exit
+        Var n
+  Decl n2 i32 const
+    Const 41
+  Decl n#1 i32 const
+    Var n2
+  Decl n2#1 i32 const
+    BinOp +
+      Var n#1
+      Const 1
+  Decl result#1 i32 const
+    Var n2#1
+  Print
+    Var result#1
+  Print
+    Call pick
+      Const 0
+  Print
+    Var n2
+  Exit
+    Const 0

@@ -1,0 +1,19 @@
+running total
+1 add, 2 multiply, 3 show, 4 add three times, 9 stop, 0 quit
+command?
+amount?
+4
+command?
+factor?
+20
+command?
+value
+20
+steps
+2
+command?
+value
+20
+steps
+2
+Program exit with result 0

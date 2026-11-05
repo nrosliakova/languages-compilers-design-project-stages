@@ -1,0 +1,31 @@
+Program
+  Decl total i32 mut
+    Const 0
+  For i i32
+    Const 1
+    Const 4
+    Block
+      Decl square i32 const
+        BinOp *
+          Var i
+          Var i
+      Assign total
+        BinOp +
+          Var total
+          Var square
+  Print
+    Var total
+  For i i32
+    Const 3
+    Const 1
+    Block
+      Print
+        Var i
+  For big i64
+    Const 9223372036854775806
+    Const 9223372036854775807
+    Block
+      Print
+        Var big
+  Exit
+    Var total

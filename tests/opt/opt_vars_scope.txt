@@ -1,0 +1,16 @@
+fn noise(minint n) -> minint
+👇
+    say(n);
+    bye n;
+👆
+minint 🔒 dead{1};
+minint 🔒 loud{noise(7)};
+minint 🔒 loud2{noise(8)};
+minint 🔓 kept{2};
+chat kept == 2
+👇
+    minint 🔒 dead{5};
+    kept = kept + 1;
+👆
+say(kept);
+bye kept;

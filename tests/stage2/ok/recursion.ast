@@ -1,0 +1,23 @@
+Program
+  Fn count -> i32
+    Param n i32
+    Block
+      If
+        BinOp ==
+          Var n
+          Const 0
+        Block
+          Exit
+            Const 0
+      Decl r i32 const
+        BinOp +
+          Call count
+            BinOp -
+              Var n
+              Const 1
+          Const 1
+      Exit
+        Var r
+  Exit
+    Call count
+      Const 5

@@ -1,0 +1,9 @@
+Program
+  Fn ready -> bool
+    Block
+      Exit
+        Bool true
+  Print
+    Call ready
+  Exit
+    Call ready

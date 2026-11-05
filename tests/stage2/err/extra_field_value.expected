@@ -1,0 +1,1 @@
+compilation error: line 17:12: struct 'Point' needs 2 values in {}, got 3

@@ -1,0 +1,1 @@
+struct printf 👇 minint 🔒 x; fn main() -> minint 👇 bye x; 👆 👆 printf 🔒 p{9}; bye p.main();

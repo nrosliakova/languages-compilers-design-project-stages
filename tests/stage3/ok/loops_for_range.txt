@@ -1,0 +1,16 @@
+minint 🔓 total{0};
+for minint 🔒 i from 1 to 4
+👇
+    minint 🔒 square{i * i};
+    total = total + square;
+👆
+say(total);
+for minint 🔒 i from 3 to 1
+👇
+    say(i);
+👆
+for bigint 🔒 big from 9223372036854775806 to 9223372036854775807
+👇
+    say(big);
+👆
+bye total;

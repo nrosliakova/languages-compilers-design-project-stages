@@ -1,0 +1,1 @@
+say(listen()); say(listen()); bye 0;

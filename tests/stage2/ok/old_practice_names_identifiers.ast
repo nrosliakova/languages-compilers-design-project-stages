@@ -1,0 +1,11 @@
+Program
+  Decl read i32 const
+    Const 3
+  Decl print i32 const
+    Const 4
+  Decl while i32 const
+    Const 5
+  Decl exit i32 const
+    Const 6
+  Exit
+    Var read

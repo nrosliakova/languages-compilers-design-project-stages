@@ -1,0 +1,1 @@
+fn ready() -> vibe 👇 bye yea; 👆 say(ready()); bye ready();

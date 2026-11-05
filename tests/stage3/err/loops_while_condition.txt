@@ -1,0 +1,6 @@
+minint 🔒 flag{1};
+while flag
+👇
+    say(flag);
+👆
+bye 0;

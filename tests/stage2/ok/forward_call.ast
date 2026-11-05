@@ -1,0 +1,15 @@
+Program
+  Fn first -> i32
+    Param x i32
+    Block
+      Exit
+        Call second
+          Var x
+  Fn second -> i32
+    Param x i32
+    Block
+      Exit
+        Var x
+  Exit
+    Call first
+      Const 9

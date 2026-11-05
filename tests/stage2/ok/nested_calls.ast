@@ -1,0 +1,10 @@
+Program
+  Fn identity -> i32
+    Param x i32
+    Block
+      Exit
+        Var x
+  Exit
+    Call identity
+      Call identity
+        Const 8

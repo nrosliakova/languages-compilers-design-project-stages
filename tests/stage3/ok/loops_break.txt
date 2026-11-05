@@ -1,0 +1,19 @@
+minint 🔓 n{0};
+while yea
+👇
+    n = n + 1;
+    chat n == 3
+    👇
+        break;
+    👆
+    say(n);
+👆
+for minint 🔒 i from 1 to 10
+👇
+    chat i == 2
+    👇
+        break;
+    👆
+    say(i * 100);
+👆
+bye n;

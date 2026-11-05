@@ -1,0 +1,29 @@
+Program
+  Fn noise -> i32
+    Param n i32
+    Block
+      Print
+        Var n
+      Exit
+        Var n
+  Decl loud i32 const
+    Call noise
+      Const 7
+  Decl loud2 i32 const
+    Call noise
+      Const 8
+  Decl kept i32 mut
+    Const 2
+  If
+    BinOp ==
+      Var kept
+      Const 2
+    Block
+      Assign kept
+        BinOp +
+          Var kept
+          Const 1
+  Print
+    Var kept
+  Exit
+    Var kept

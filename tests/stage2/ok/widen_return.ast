@@ -1,0 +1,7 @@
+Program
+  Fn big -> i64
+    Block
+      Exit
+        Const 42
+  Exit
+    Call big

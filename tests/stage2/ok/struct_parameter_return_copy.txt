@@ -1,0 +1,1 @@
+struct Box 👇 minint 🔓 x; 👆 fn copy(Box b) -> Box 👇 bye b; 👆 Box 🔒 a{1}; Box 🔓 b{copy(a)}; b.x = 2; say(a); bye b.x;

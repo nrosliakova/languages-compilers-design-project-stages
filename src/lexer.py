@@ -80,8 +80,13 @@ def lex(data):
                 tokens.append(Token("block", chr(byte), line, column))
             elif byte == ord(";"):
                 tokens.append(Token("separator", ";", line, column))
-            elif byte in (ord("+"), ord("-"), ord("*")):
+            elif byte in (ord("+"), ord("*"), ord("("), ord(")"), ord(","), ord(".")):
                 tokens.append(Token("operator", chr(byte), line, column))
+            elif byte == ord('"'):
+                state = "STRING"
+                start = i + 1
+            elif byte == ord("-"):
+                state = "DASH"
             elif byte == ord("="):
                 state = "EQUAL"
             elif byte == ord("!"):
@@ -94,6 +99,26 @@ def lex(data):
                     line, column,
                     f"unexpected byte '{display_byte(byte)}'",
                 )
+
+        elif state == "STRING":
+            if byte is None or byte in (10, 13):
+                raise LexError(start_line, start_column, "string literal is not closed on its line")
+            if byte == ord('"'):
+                try:
+                    text = data[start:i].decode("utf-8")
+                except UnicodeDecodeError:
+                    raise LexError(start_line, start_column, "invalid UTF-8 in string literal")
+                tokens.append(Token("string", text, start_line, start_column))
+                state = "START"
+
+        elif state == "DASH":
+            if byte == ord(">"):
+                tokens.append(Token("operator", "->", start_line, start_column))
+                state = "START"
+            else:
+                tokens.append(Token("operator", "-", start_line, start_column))
+                state = "START"
+                continue
 
         elif state == "IDENT":
             if byte is not None and (is_letter(byte) or is_digit(byte)):

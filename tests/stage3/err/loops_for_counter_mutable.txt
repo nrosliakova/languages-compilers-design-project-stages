@@ -1,0 +1,5 @@
+for minint 🔓 i from 1 to 3
+👇
+    say(i);
+👆
+bye 0;

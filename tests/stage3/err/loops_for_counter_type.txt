@@ -1,0 +1,5 @@
+for vibe 🔒 flag from 1 to 3
+👇
+    say(flag);
+👆
+bye 0;

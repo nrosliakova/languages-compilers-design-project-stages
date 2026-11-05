@@ -1,0 +1,7 @@
+Program
+  Print
+    Call listen
+  Print
+    Call listen
+  Exit
+    Const 0
