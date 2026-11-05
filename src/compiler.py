@@ -62,6 +62,22 @@ class WhileNode(Node):
 
 
 @dataclass
+class ForNode(Node):
+    name: str
+    type_name: str
+    start: object
+    end: object
+    body: BlockNode
+    decl: object = field(default=None, init=False, repr=False)
+    limit: object = field(default=None, init=False, repr=False)
+
+
+@dataclass
+class BreakNode(Node):
+    pass
+
+
+@dataclass
 class PrintNode(Node):
     value: object
 
@@ -291,6 +307,14 @@ class Parser:
             node = self.parse_print()
             self.expect_text(";", "expected ';' after say")
             return node
+        if (token.text == "while"
+                and self.tokens[self.pos + 1].text not in {"=", ".", ";", "("}):
+            return self.parse_while()
+        if (token.text == "for"
+                and self.tokens[self.pos + 1].text in self.TYPES):
+            return self.parse_for()
+        if token.text == "break" and self.tokens[self.pos + 1].text == ";":
+            return self.parse_break()
         if self.is_header("fn") or self.is_header("struct"):
             self.error_here("functions and structures are declared only at the top level")
         if token.kind == "identifier":
@@ -366,6 +390,70 @@ class Parser:
             else_block,
         )
 
+    def parse_while(self):
+        token = self.expect_text("while")
+        condition = self.parse_expr()
+        body = self.parse_block()
+        return WhileNode(token.line, token.column, condition, body)
+
+    def parse_for(self):
+        token = self.expect_text("for")
+        type_token = self.eat()
+
+        if type_token.text not in self.TYPES:
+            raise CompileError(
+                type_token.line,
+                type_token.column,
+                "the loop counter needs the type minint or bigint",
+            )
+
+        if type_token.text not in {"minint", "bigint"}:
+            raise CompileError(
+                type_token.line,
+                type_token.column,
+                f"the loop counter must be minint or bigint, not '{type_token.text}'",
+            )
+
+        marker = self.peek()
+        if marker.text != self.IMMUTABLE:
+            self.error_here(
+                "the loop counter needs the locked padlock; "
+                "the body cannot reassign it"
+            )
+        self.eat()
+
+        name = self.expect_kind("identifier", "expected the loop counter name")
+        self.expect_text("from", "expected 'from' after the loop counter")
+        start = self.parse_expr()
+        self.expect_text("to", "expected 'to' after the first value of the range")
+        end = self.parse_expr()
+        body = self.parse_block()
+
+        type_name = self.TYPES[type_token.text]
+        node = ForNode(
+            token.line,
+            token.column,
+            name.text,
+            type_name,
+            start,
+            end,
+            body,
+        )
+        node.decl = DeclNode(
+            name.line,
+            name.column,
+            name.text,
+            type_name,
+            False,
+            start,
+        )
+        return node
+
+    def parse_break(self):
+        token = self.expect_text("break")
+        self.expect_text(";", "expected ';' after break")
+        return BreakNode(token.line, token.column)
+
     def parse_block(self):
         opening = self.expect_text(
             self.OPEN, "expected the opening block marker"
@@ -384,6 +472,11 @@ class Parser:
             if exit_node is not None:
                 self.error_here(
                     "statement after 'bye' in the same block"
+                )
+
+            if statements and isinstance(statements[-1], BreakNode):
+                self.error_here(
+                    "statement after 'break' in the same block"
                 )
 
             if self.at("bye"):
@@ -667,6 +760,15 @@ class AstPrinter:
         self.child(node.condition)
         self.child(node.body)
 
+    def visit_for(self, node):
+        self.add(f"For {node.name} {node.type_name}")
+        self.child(node.start)
+        self.child(node.end)
+        self.child(node.body)
+
+    def visit_break(self, node):
+        self.add("Break")
+
     def visit_print(self, node):
         self.add("Print")
         self.child(node.value)
@@ -800,6 +902,7 @@ class SemanticChecker:
         self.generated_structs = []
         self.lambda_context = None
         self.lambda_counts = {}
+        self.loop_depth = 0
 
     def lookup(self, node, name):
         decl = self.find_variable(name)
@@ -1557,7 +1660,54 @@ class SemanticChecker:
         if node.condition.type != "bool":
             raise CompileError(node.condition.line, node.condition.column,
                                "while condition must be bool")
-        node.body.accept(self)
+        self.loop_depth += 1
+        try:
+            node.body.accept(self)
+        finally:
+            self.loop_depth -= 1
+
+    def visit_for(self, node):
+        if node.type_name not in {"i32", "i64"}:
+            raise CompileError(
+                node.line,
+                node.column,
+                "the loop counter must be minint or bigint",
+            )
+
+        node.start.accept(self)
+        self.check_assignable(
+            node.start,
+            node.type_name,
+            node.start,
+            f"start the loop counter '{node.name}'",
+        )
+        node.end.accept(self)
+        self.check_assignable(
+            node.end,
+            node.type_name,
+            node.end,
+            f"end the loop counter '{node.name}'",
+        )
+
+        node.decl.type_name = node.type_name
+        node.decl.mutable = False
+        node.decl.init = node.start
+
+        self.scopes.append({node.name: node.decl})
+        self.loop_depth += 1
+        try:
+            node.body.accept(self)
+        finally:
+            self.loop_depth -= 1
+            self.scopes.pop()
+
+    def visit_break(self, node):
+        if self.loop_depth == 0:
+            raise CompileError(
+                node.line,
+                node.column,
+                "'break' is only allowed inside a loop",
+            )
 
     def visit_if(self, node):
         condition_type = node.condition.accept(self)
@@ -1781,6 +1931,7 @@ class CodeGenerator:
         self.runtime_write = ir.Function(self.module, ir.FunctionType(I64, [I32, I8.as_pointer(), I64]), name="write")
         self.runtime_exit = ir.Function(self.module, ir.FunctionType(ir.VoidType(), [I32]), name="exit")
         self.listen_fn = None
+        self.loops = []
 
     def global_string(self, name, data):
         array_type = ir.ArrayType(I8, len(data))
@@ -1868,11 +2019,13 @@ class CodeGenerator:
         saved_function = self.function
         saved_fn_node = self.fn_node
         saved_this_pointer = self.this_pointer
+        saved_loops = self.loops
 
         self.function = fn
         self.fn_node = node
         self.builder = ir.IRBuilder(entry)
         self.this_pointer = None
+        self.loops = []
 
         arguments = list(fn.args)
 
@@ -1893,6 +2046,7 @@ class CodeGenerator:
         self.function = saved_function
         self.fn_node = saved_fn_node
         self.this_pointer = saved_this_pointer
+        self.loops = saved_loops
 
     def visit_call(self, node):
         if node.name == "listen":
@@ -2095,10 +2249,79 @@ class CodeGenerator:
         condition = node.condition.accept(self)
         self.builder.cbranch(condition, body_block, end_block)
         self.builder.position_at_end(body_block)
-        node.body.accept(self)
+        self.loops.append(end_block)
+        try:
+            node.body.accept(self)
+        finally:
+            self.loops.pop()
         if not self.builder.block.is_terminated:
             self.builder.branch(condition_block)
         self.builder.position_at_end(end_block)
+
+    def visit_for(self, node):
+        type_name = node.type_name
+        node.decl.pointer = self.create_entry_alloca(type_name, node.name)
+        node.limit = self.create_entry_alloca(type_name, f"{node.name}.limit")
+
+        start = node.start.accept(self)
+        start = self.coerce(start, node.start.type, type_name)
+        self.builder.store(start, node.decl.pointer)
+
+        limit = node.end.accept(self)
+        limit = self.coerce(limit, node.end.type, type_name)
+        self.builder.store(limit, node.limit)
+
+        condition_block = self.function.append_basic_block("for.condition")
+        body_block = self.function.append_basic_block("for.body")
+        step_block = self.function.append_basic_block("for.step")
+        end_block = self.function.append_basic_block("for.end")
+
+        self.builder.branch(condition_block)
+        self.builder.position_at_end(condition_block)
+        counter = self.builder.load(node.decl.pointer, name="for.counter")
+        limit = self.builder.load(node.limit, name="for.limit")
+        self.builder.cbranch(
+            self.builder.icmp_signed("<=", counter, limit, name="for.keep"),
+            body_block,
+            end_block,
+        )
+
+        self.builder.position_at_end(body_block)
+        self.loops.append(end_block)
+        try:
+            node.body.accept(self)
+        finally:
+            self.loops.pop()
+        if not self.builder.block.is_terminated:
+            self.builder.branch(step_block)
+
+        # The counter leaves at the limit, so the step never runs past the
+        # largest value of its type and needs no overflow check.
+        self.builder.position_at_end(step_block)
+        counter = self.builder.load(node.decl.pointer, name="for.counter")
+        limit = self.builder.load(node.limit, name="for.limit")
+        increment_block = self.function.append_basic_block("for.increment")
+        self.builder.cbranch(
+            self.builder.icmp_signed("==", counter, limit, name="for.last"),
+            end_block,
+            increment_block,
+        )
+
+        self.builder.position_at_end(increment_block)
+        counter = self.builder.load(node.decl.pointer, name="for.counter")
+        self.builder.store(
+            self.builder.add(
+                counter,
+                ir.Constant(self.llvm_type(type_name), 1),
+                name="for.next",
+            ),
+            node.decl.pointer,
+        )
+        self.builder.branch(condition_block)
+        self.builder.position_at_end(end_block)
+
+    def visit_break(self, node):
+        self.builder.branch(self.loops[-1])
 
     def visit_if(self, node):
         condition = node.condition.accept(self)

@@ -1,11 +1,12 @@
 # Languages and Compilers Design — Course Project
 
-> Implementation status: this working copy implements the agreed Stage 2 language.
+> Implementation status: this working copy implements the agreed Stage 2 language
+> plus the Stage 3 loop feature (`while`, `for` over an integer range, `break`).
 > It passes the included regression suite using both LLVM JIT and native
 > LLVM object code linked with GCC, while retaining the original Stage 1
 > fixtures. Standalone `lli` execution still needs verification on the
-> submission machine. GitHub/PR/submission steps and the final AI disclosure
-> have not been completed by this package.
+> submission machine. The Stage 3 optimizer and the Stage 3 program are not in
+> this working copy yet.
 
 ## Stage 1 language syntax
 
@@ -382,6 +383,159 @@ A call result or any path containing a call result cannot be an assignment
 target: `makePoint().x = 5;` is rejected. Store the result in a named variable if
 it must subsequently be assigned through.
 
+## Stage 3 language rules: loops
+
+Stage 3 adds one feature of my own: loops. `while` repeats a block while a
+condition holds, `for` walks an inclusive integer range, and `break` leaves the
+innermost loop. Every program that was valid in Stage 2 is still valid and
+prints the same.
+
+| Meaning | Syntax |
+| --- | --- |
+| Repeat while a condition holds | `while` condition block |
+| Walk an inclusive integer range | `for` `minint`/`bigint` 🔒 name `from` first `to` last block |
+| Leave the innermost loop | `break;` |
+
+A loop takes a block and no trailing semicolon, like `chat`. The condition of a
+`while` must be `vibe`. The source language still has no relational operators,
+so a condition is built from `==`, `!=` and `!`.
+
+### Example 1: counting down with `while`
+
+```text
+minint 🔓 count{0};
+minint 🔒 stop{4};
+while count != stop
+👇
+    say(count);
+    count = count + 1;
+👆
+minint 🔓 down{3};
+while down != 0
+👇
+    say(down);
+    down = down - 1;
+👆
+bye count;
+```
+
+Prints `0`, `1`, `2`, `3`, then `3`, `2`, `1`, then `Program exit with result 4`.
+
+### Example 2: an inclusive range with a declaration in the body
+
+```text
+minint 🔓 total{0};
+for minint 🔒 i from 1 to 4
+👇
+    minint 🔒 square{i * i};
+    total = total + square;
+👆
+say(total);
+for minint 🔒 i from 3 to 1
+👇
+    say(i);
+👆
+bye total;
+```
+
+Prints `30`, then `Program exit with result 30`. The body declares `square` on
+every iteration, and the second loop runs zero times because its first value is
+above its last.
+
+### Rules
+
+- The range is inclusive at both ends.
+- Both bounds are evaluated once, before the first iteration, in the type of the
+  counter. A `minint` bound may widen to a `bigint` counter; nothing narrows.
+- A first value above the last value runs the body zero times. That is not an error.
+- The counter is declared in the header with a locked padlock and cannot be
+  reassigned. A body that needs a changing value writes to its own variable.
+- The counter is scoped to the loop body. After the loop the name is gone, and a
+  counter may shadow an outer variable of the same name without changing it.
+- `break` leaves the innermost loop, so a `break` inside a `chat` inside a loop
+  leaves the loop. It must be the last statement of its block, exactly as `bye`
+  must be, and outside a loop it is an error.
+- `while`, `for` and `break` are not reserved words, because Stage 2 programs may
+  already use them as names. `minint 🔒 while{5}; bye while;` still compiles:
+  `while` starts a loop only when the next token is not `=`, `.`, `(` or `;`;
+  `for` starts a loop only when a type name follows it; `break` is a statement
+  only as the whole statement `break;`.
+
+### Lowering
+
+`while` becomes three basic blocks: `while.condition`, `while.body` and
+`while.end`. The body branches back to the condition, and that branch is the
+loop's back edge.
+
+`for` becomes five: `for.condition`, `for.body`, `for.step`, `for.increment` and
+`for.end`. The condition compares the counter with the stored last value and
+branches into the body while it holds; the body falls through to the step; the
+step leaves for `for.end` when the counter has reached the last value, and
+otherwise the increment adds one and branches back to `for.condition`.
+Leaving before the increment is what keeps the step safe at the top of a type: a
+`bigint` loop ending at 9223372036854775807 never adds one to
+9223372036854775807, so the single addition the loop performs needs no overflow
+check, unlike a `+` written in the source language. `break` branches straight to
+the `for.end` or `while.end` block of the innermost loop.
+
+### The IR of `for minint 🔒 i from 1 to 3 👇 say(i); 👆`
+
+Twenty lines of `output.ll` from that program. The increment block is printed
+last because the builder appends it after the exit path:
+
+```llvm
+for.condition:
+  %"for.counter" = load i32, i32* %"i"
+  %"for.limit" = load i32, i32* %"i.limit"
+  %"for.keep" = icmp sle i32 %"for.counter", %"for.limit"
+  br i1 %"for.keep", label %"for.body", label %"for.end"
+for.body:
+  %"i.value" = load i32, i32* %"i"
+  %".6" = call i32 (i8*, ...) @"printf"(i8* bitcast ([3 x i8]* @"print_i32_format" to i8*), i32 %"i.value")
+  %".7" = call i32 (i8*, ...) @"printf"(i8* bitcast ([3 x i8]* @"text_format" to i8*), i8* bitcast ([2 x i8]* @"newline" to i8*))
+  br label %"for.step"
+for.step:
+  %"for.counter.1" = load i32, i32* %"i"
+  %"for.limit.1" = load i32, i32* %"i.limit"
+  %"for.last" = icmp eq i32 %"for.counter.1", %"for.limit.1"
+  br i1 %"for.last", label %"for.end", label %"for.increment"
+for.increment:
+  %"for.counter.2" = load i32, i32* %"i"
+  %"for.next" = add i32 %"for.counter.2", 1
+  store i32 %"for.next", i32* %"i"
+  br label %"for.condition"
+```
+
+`for.condition` loads the counter and the last value that `entry` stored before
+the loop began and keeps looping while the counter is not greater, so a first
+value above the last one falls straight to `for.end`. `for.body` is the user's
+block: the two `printf` calls are the one `say(i)` statement, and its final `br`
+is the fall-through into the step. The last five lines are the back edge:
+`for.step` jumps out when the counter has reached the last value, and only the
+`for.increment` block adds one and branches back to `for.condition`.
+
+### The feature's tests
+
+`tests/stage3` holds them, and `run_stage2_tests.py` runs them with everything else.
+
+| File | What it pins |
+| --- | --- |
+| `ok/loops_while_basic.txt` | two `while` loops, one counting up with `+`, one down with `-` |
+| `ok/loops_while_nested.txt` | a `while` inside a `for`, and a body declaring its own variable |
+| `ok/loops_for_range.txt` | a `for` with a declaration in the body, an empty range, and a `bigint` range ending at 9223372036854775807 |
+| `ok/loops_break.txt` | `break` out of a `while` from inside a `chat`, and out of a `for` |
+| `err/loops_while_condition.txt` | a `while` condition that is not `vibe` |
+| `err/loops_break_outside.txt` | `break` outside any loop |
+| `err/loops_for_counter_mutable.txt` | a counter declared with the open padlock |
+| `err/loops_for_counter_type.txt` | a `vibe` counter |
+| `err/loops_break_not_last.txt` | a statement after `break` in the same block |
+
+```bash
+python3 compiler.py --ast tests/stage3/ok/loops_while_nested.txt
+python3 compiler.py tests/stage3/ok/loops_for_range.txt output.ll
+python3 run_stage2_tests.py --engine jit
+```
+
 ## Submission checklist and implementation verification
 
 - Preserve the original Stage 1 fixtures and rerun their AST/output comparisons.
@@ -444,13 +598,13 @@ output-file cleanup. It includes input fixtures and runtime-error fixtures.
 The original `check.py`, `run_tests.sh` and `run_stage1_tests.sh` remain available
 for the original Stage 1 suites; use `run_stage2_tests.py` for both stages.
 
-Latest local QA: **223 checks passed, 0 failed in each execution mode**
+Latest local QA: **236 checks passed, 0 failed in each execution mode**
 (LLVM JIT and native object code linked with GCC):
 
-- 55 AST snapshots (16 original Stage 1 plus 39 Stage 2).
-- 55 valid end-to-end execution cases.
+- 59 AST snapshots (16 original Stage 1, 39 Stage 2, 4 Stage 3 loops).
+- 59 valid end-to-end execution cases.
 - 20 original lexical/syntax-error AST cases.
-- 75 invalid compilation cases (20 original plus 55 Stage 2).
+- 80 invalid compilation cases (20 original, 55 Stage 2, 5 Stage 3 loops).
 - 18 runtime-error cases (overflow and invalid input).
 
 Tested with Python 3.13, llvmlite 0.49.0 and LLVM 22.1.0 on Linux, using
@@ -459,10 +613,10 @@ An additional 350 malformed-source mutations produced no unexpected crashes;
 accepted mutations had their generated IR verified. This is a smoke check, not
 proof that every possible compiler input is handled.
 
-## AI disclosure is not finalized
+## AI disclosure
 
-`ai_usage.txt` is the original Stage 1 record. `AI_USAGE_DRAFT.md` records the
-current agent work but is **not** a finished `ai_usage_2.txt` submission.
-Nina must review the code, provide her own explanation of the generated work,
-and verify the complete prompts before finalizing the required disclosure.
-Do not submit this working copy as complete until that and the PR steps are done.
+`ai_usage.txt` is the Stage 1 record and `ai_usage_2.txt` is the Stage 2 record.
+The Stage 3 record, `ai_usage_3.txt`, is not in this working copy yet. It must
+name the tools, quote the prompts, say for each part what was taken as it was
+and what changed and why, and explain in Nina's own words the code she did not
+write, before the Stage 3 submission.

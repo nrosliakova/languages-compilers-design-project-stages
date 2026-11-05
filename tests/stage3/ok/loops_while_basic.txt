@@ -1,0 +1,14 @@
+minint 🔓 count{0};
+minint 🔒 stop{4};
+while count != stop
+👇
+    say(count);
+    count = count + 1;
+👆
+minint 🔓 down{3};
+while down != 0
+👇
+    say(down);
+    down = down - 1;
+👆
+bye count;

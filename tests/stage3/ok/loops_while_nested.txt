@@ -1,0 +1,10 @@
+for minint 🔒 row from 1 to 2
+👇
+    minint 🔓 col{0};
+    while col != 3
+    👇
+        say(row * 10 + col);
+        col = col + 1;
+    👆
+👆
+bye 0;

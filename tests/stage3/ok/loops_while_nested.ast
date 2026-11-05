@@ -1,0 +1,24 @@
+Program
+  For row i32
+    Const 1
+    Const 2
+    Block
+      Decl col i32 mut
+        Const 0
+      While
+        BinOp !=
+          Var col
+          Const 3
+        Block
+          Print
+            BinOp +
+              BinOp *
+                Var row
+                Const 10
+              Var col
+          Assign col
+            BinOp +
+              Var col
+              Const 1
+  Exit
+    Const 0

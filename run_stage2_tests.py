@@ -42,6 +42,10 @@ def main():
             cases.append(('invalid', source))
         for source in sorted((ROOT/'tests/stage2/runtime').glob('*.txt')):
             cases.append(('runtime', source))
+        for source in sorted((ROOT/'tests/stage3/ok').glob('*.txt')):
+            cases.extend([('ast', source), ('valid', source)])
+        for source in sorted((ROOT/'tests/stage3/err').glob('*.txt')):
+            cases.append(('invalid', source))
         for kind, source in cases:
             try:
                 if kind in {'ast', 'ast_error'}:
