@@ -674,12 +674,20 @@ Two sessions are recorded, and the test script runs both:
 
 ```bash
 python3 compiler.py programs/calc.txt programs/calc.ll
-llc programs/calc.ll -o programs/calc.s
+llc -relocation-model=pic programs/calc.ll -o programs/calc.s
 clang programs/calc.s -o programs/calc
 ./programs/calc < programs/calc.tour.in
 ./programs/calc < programs/calc.quick.in
 python3 run_stage2_tests.py --engine native
 ```
+
+`-relocation-model=pic` is not optional on a distribution whose `clang` links
+position-independent executables by default, which every current Ubuntu does:
+`llc`'s default output uses absolute 32-bit relocations against `.rodata`, and
+the linker rejects it with `relocation R_X86_64_32 ... can not be used when
+making a PIE object`. Adding `-no-pie` to the `clang` line works as well and
+produces the same program; `--engine native` in the test script already asks
+llvmlite for a PIC target machine, which is why it links without either flag.
 
 The three commands write `calc.ll`, `calc.s` and `calc` into `programs/`, which
 `.gitignore` keeps out of the branch. `lli` runs the same module but is not the
